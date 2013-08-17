@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="utf-8">
+        <title>Blogistic Regression - Chris</title>
+        <link rel="stylesheet" href="/theme/css/main.css">
+                
+        <!--[if IE]>
+            <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+</head>
+
+<body id="index" class="home">
+        <header id="banner" class="body">
+                <h1><a href="/">Blogistic Regression </a></h1>
+                <nav><ul>
+                                                                                    <li ><a href="/category/ipython.html">ipython</a></li>
+                                                </ul></nav>
+        </header><!-- /#banner -->
+                
+            
+
+                            <aside id="featured" class="body">
+                <article>
+                    <h1 class="entry-title"><a href="/nyt-scraping.html">Scraping NYT for Scandals</a></h1> 
+                    <footer class="post-info">
+        <abbr class="published" title="2013-07-04T00:00:00">
+                Thu 04 July 2013
+        </abbr>
+
+                <address class="vcard author">
+                By <a class="url fn" href="/author/chris.html">Chris</a>
+        </address>
+        <p>In <a href="/category/ipython.html">ipython</a>. </p>
+<p>tags: <a href="/tag/nlp.html">nlp</a><a href="/tag/ipython.html">ipython</a></p>
+</footer><!-- /.post-info --><div class="ipynb"><div class="text_cell_render border-box-sizing rendered_html">
+<p>This post uses the <a href="http://developer.nytimes.com/docs/read/article_search_api_v2">New York Times API</a> to search for articles on US politics that include the word <em>scandal</em>, and several python libraries to grab the text of those articles and store them to MongoDB for some natural language processing analytics (in <a href="/scandal-modeling-with-python.html">part 2</a> of this project).</p>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>These commands should install some of the dependencies for this part of the project:</p>
+<pre class="ipynb"><code>pip install pymongo
+pip install requests
+pip install lxml
+pip install cssselect
+</code></pre>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">from</span> <span class="nn">lxml.cssselect</span> <span class="kn">import</span> <span class="n">CSSSelector</span>
+<span class="kn">from</span> <span class="nn">lxml.html</span> <span class="kn">import</span> <span class="n">fromstring</span>
+<span class="kn">import</span> <span class="nn">pymongo</span>
+<span class="kn">import</span> <span class="nn">datetime</span> <span class="kn">as</span> <span class="nn">dt</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">itemgetter</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="o">%</span><span class="k">load_ext</span> <span class="n">autosave</span>
+<span class="o">%</span><span class="k">autosave</span> <span class="mi">30</span>
+</pre></div>
+
+</div>
+</div>
+<div class="vbox output_wrapper">
+<div class="output vbox">
+<div class="hbox output_area">
+<div class="prompt output_prompt"></div>
+<div class="output_subarea output_stream output_stdout">
+<pre class="ipynb">Usage: %autosave [seconds]
+autosaving every 30s
+</pre>
+</div>
+</div>
+<div class="hbox output_area">
+<div class="prompt output_prompt"></div>
+<div class="output_subarea output_display_data">
+<pre class="ipynb">&lt;IPython.core.display.Javascript at 0x10455e110&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 class="ipynb">Mongodb</h3>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We need to connect to the database, assuming it's already running (<code>mongod</code> from the terminal).</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="n">connection</span> <span class="o">=</span> <span class="n">pymongo</span><span class="o">.</span><span class="n">Connection</span><span class="p">(</span><span class="s">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">27017</span> <span class="p">)</span>
+<span class="n">db</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">nyt</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 class="ipynb">Get URLs</h2>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>After using your secret API key...</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="kn">from</span> <span class="nn">key</span> <span class="kn">import</span> <span class="n">apikey</span>
+<span class="n">apiparams</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;api-key&#39;</span><span class="p">:</span> <span class="n">apikey</span><span class="p">}</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>...the first thing we need to get is the urls for all the articles that match our search criterion. [Big caveat: I used a v1 api query for the original dataset that I used, and modified it for v2 after discovering it].</p>
+<p>I searched for <em>scandal</em> with the <code>q</code> parameter, and narrowed it down using <em>republican OR democrat</em> with the <code>f[ilter]q[uery]</code> parameter. I found out that there are lots of really interesting curated details you can use in the search, such as searching for articles pertaining to certain geographic areas, people or organizations (with a feature called <em>facets</em>. I used other parameters to restrict the dates to years 1992-2013, and just return certain fields I thought would be relevant:</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="n">page</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="n">q</span> <span class="o">=</span> <span class="s">&#39;http://api.nytimes.com/svc/search/v2/articlesearch.json?&#39;</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;q&#39;</span><span class="p">:</span> <span class="s">&#39;scandal*&#39;</span><span class="p">,</span>
+            <span class="s">&#39;fq&#39;</span><span class="p">:</span> <span class="s">&#39;republican* OR democrat*&#39;</span><span class="p">,</span>
+            <span class="s">&#39;fl&#39;</span><span class="p">:</span> <span class="s">&#39;web_url,headline,pub_date,type_of_material,document_type,news_desk&#39;</span><span class="p">,</span>
+            <span class="s">&#39;begin_date&#39;</span><span class="p">:</span> <span class="s">&#39;19920101&#39;</span><span class="p">,</span>
+            <span class="s">&#39;end_date&#39;</span><span class="p">:</span> <span class="s">&#39;20131231&#39;</span><span class="p">,</span>
+            <span class="s">&#39;page&#39;</span><span class="p">:</span> <span class="n">page</span><span class="p">,</span>
+            <span class="s">&#39;api-key&#39;</span><span class="p">:</span> <span class="n">apikey</span><span class="p">,</span>
+            <span class="s">&#39;rank&#39;</span><span class="p">:</span> <span class="s">&#39;newest&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>After constructing the query, we grab the search results with <a href="http://docs.python-requests.org/en/latest/">requests</a>. There's no way to tell how many results there will be, so we go as long as we can, shoving everything into MongoDB, incrementing the <code>offset</code> query parameter and pausing for a break before the next page of results (the NYT has a limit on how many times you can query them per second).</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="k">def</span> <span class="nf">memoize</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="s">&quot;Memoization for args and kwargs&quot;</span>
+    <span class="nd">@functools.wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">kw_tup</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">((</span><span class="n">kargname</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">karg</span><span class="o">.</span><span class="n">items</span><span class="p">())))</span> <span class="k">for</span> <span class="n">kargname</span><span class="p">,</span> <span class="n">karg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="n">memo_args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="n">kw_tup</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">cache</span><span class="p">[</span><span class="n">memo_args</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
+            <span class="n">wrapper</span><span class="o">.</span><span class="n">cache</span><span class="p">[</span><span class="n">memo_args</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+    <span class="n">wrapper</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">return</span> <span class="n">wrapper</span>
+
+    
+<span class="nd">@memoize</span>
+<span class="k">def</span> <span class="nf">search_nyt</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+    <span class="n">sleep</span><span class="p">(</span><span class="o">.</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">res</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="n">fdate</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">d</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s">&#39;%Y%m</span><span class="si">%d</span><span class="s">&#39;</span><span class="p">:</span> <span class="n">dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">():</span>  <span class="c">#keep looping indefinitely</span>
+    <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s">&#39;page&#39;</span><span class="p">:</span> <span class="n">page</span><span class="p">})</span>  <span class="c">#fetch another ten results from the next page</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">search_nyt</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)[</span><span class="s">&quot;response&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">res</span><span class="p">[</span><span class="s">&#39;docs&#39;</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">dct</span> <span class="ow">in</span> <span class="n">res</span><span class="p">[</span><span class="s">&#39;docs&#39;</span><span class="p">]:</span>
+            <span class="n">dct</span> <span class="o">=</span> <span class="n">dct</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c">#for memoization purposes</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">dct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s">&#39;web_url&#39;</span><span class="p">)</span>
+            <span class="n">dct</span><span class="p">[</span><span class="s">&#39;pub_date&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fdate</span><span class="p">(</span><span class="n">dct</span><span class="p">[</span><span class="s">&#39;pub_date&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;T&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;%Y-%m-</span><span class="si">%d</span><span class="s">&#39;</span><span class="p">)</span>  <span class="c">#string -&gt; format as datetime object</span>
+            <span class="n">dct</span><span class="p">[</span><span class="s">&#39;headline&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dct</span><span class="p">[</span><span class="s">&#39;headline&#39;</span><span class="p">][</span><span class="s">&#39;main&#39;</span><span class="p">]</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s">&#39;url&#39;</span><span class="p">:</span> <span class="n">url</span><span class="p">},</span> <span class="p">{</span><span class="s">&#39;$set&#39;</span><span class="p">:</span> <span class="n">dct</span><span class="p">},</span> <span class="n">upsert</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c">#no more results</span>
+        <span class="k">break</span>
+    <span class="k">if</span> <span class="n">page</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">print</span> <span class="n">page</span><span class="p">,</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can see from the response's metadata that we should expect about 11876 article links to be saved to our database:</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="n">search_nyt</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)[</span><span class="s">&#39;response&#39;</span><span class="p">][</span><span class="s">&#39;meta&#39;</span><span class="p">]</span>
+</pre></div>
+
+</div>
+</div>
+<div class="vbox output_wrapper">
+<div class="output vbox">
+<div class="hbox output_area">
+<div class="prompt output_prompt">Out[9]:</div>
+<div class="output_subarea output_pyout">
+<pre class="ipynb">{u&apos;hits&apos;: 11876, u&apos;offset&apos;: 340, u&apos;time&apos;: 140}</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 class="ipynb">Scrape Text</h2>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Here are a few of the resulting URLS that we'll use to get the full text articles:</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="p">[</span><span class="n">doc</span><span class="p">[</span><span class="s">&#39;url&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">find</span><span class="p">()][:</span><span class="mi">5</span><span class="p">]</span>
+</pre></div>
+
+</div>
+</div>
+<div class="vbox output_wrapper">
+<div class="output vbox">
+<div class="hbox output_area">
+<div class="prompt output_prompt">Out[10]:</div>
+<div class="output_subarea output_pyout">
+<pre class="ipynb">[u&apos;http://www.nytimes.com/2006/04/30/washington/30cunningham.html&apos;,
+ u&apos;http://www.nytimes.com/2004/04/09/business/senate-panel-asked-to-give-sec-proposals-a-chance.html&apos;,
+ u&apos;http://www.nytimes.com/2006/05/12/washington/12foggo.html&apos;,
+ u&apos;http://cityroom.blogs.nytimes.com/2007/08/14/tributes-to-mrs-astor-federal-money-for-congestion-pricing-tribulations-of-newarks-mayor-and-more/&apos;,
+ u&apos;http://www.nytimes.com/2007/08/14/opinion/14tue1.html&apos;]</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The scraping wasn't as difficult as I was expecting; over the 20 or so years that I searched for, the body text of the articles could be found by looking at 5 html elements (formatted as CSS selectors in <code>_sels</code> below). The following two functions do most of the scraping work-- <code>get_text</code>...well...gets the text from the <code>CSSSelector</code> parser, and <code>grab_text</code> uses this after pulling the html with requests.</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[23]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="k">def</span> <span class="nf">get_text</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+    <span class="s">&quot;Function to extract text from CSSSelector results&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">itertext</span><span class="p">())</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s">&#39;ascii&#39;</span><span class="p">,</span> <span class="s">&#39;ignore&#39;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">UnicodeDecodeError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s">&#39;&#39;</span>
+
+
+<span class="k">def</span> <span class="nf">grab_text</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="s">&quot;Main scraping function--given url, grabs html, looks for and returns article text&quot;</span>
+    <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="p">(</span><span class="n">grab_text</span><span class="o">.</span><span class="n">c</span> <span class="o">%</span> <span class="n">verbose</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>  <span class="c">#page counter</span>
+        <span class="k">print</span> <span class="n">grab_text</span><span class="o">.</span><span class="n">c</span><span class="p">,</span>
+    <span class="n">grab_text</span><span class="o">.</span><span class="n">c</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">all_pages</span><span class="p">)</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="n">fromstring</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_sel</span> <span class="ow">in</span> <span class="n">_sels</span><span class="p">:</span>
+        <span class="n">text_elems</span> <span class="o">=</span> <span class="n">CSSSelector</span><span class="p">(</span><span class="n">_sel</span><span class="p">)(</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">text_elems</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">get_text</span><span class="p">,</span> <span class="n">text_elems</span><span class="p">))</span>
+    <span class="k">return</span> <span class="s">&#39;&#39;</span>
+
+<span class="c">#Selectors where text of articles can be found; several patterns among NYT articles</span>
+<span class="n">_sels</span> <span class="o">=</span>  <span class="p">[</span><span class="s">&#39;p[itemprop=&quot;articleBody&quot;]&#39;</span><span class="p">,</span> <span class="s">&quot;div.blurb-text&quot;</span><span class="p">,</span> <span class="s">&#39;div#articleBody p&#39;</span><span class="p">,</span> <span class="s">&#39;div.articleBody p&#39;</span><span class="p">,</span> <span class="s">&#39;div.mod-nytimesarticletext p&#39;</span><span class="p">]</span>
+<span class="n">all_pages</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;pagewanted&#39;</span><span class="p">:</span> <span class="s">&#39;all&#39;</span><span class="p">}</span>
+</pre></div>
+
+</div>
+</div>
+<div class="vbox output_wrapper">
+<div class="output vbox">
+<div class="hbox output_area">
+<div class="prompt output_prompt"></div>
+<div class="output_subarea output_stream output_stdout">
+<pre class="ipynb">
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>And here is the main loop and counter. Pretty simple.</p>
+<p>On the first run, the output counts up from zero, but since political scandals seem to be popping up by the hour, I've updated the search a few times, but only pulling articles that aren't already in the database (hence the very sparse output below).</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[31]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">grab_text</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="p">(</span><span class="s">&#39;url&#39;</span> <span class="ow">in</span> <span class="n">doc</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s">&#39;text&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">doc</span><span class="p">):</span>
+        <span class="c"># if we don&#39;t already have this in mongodb</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">txt</span> <span class="o">=</span> <span class="n">grab_text</span><span class="p">(</span><span class="n">doc</span><span class="p">[</span><span class="s">&#39;url&#39;</span><span class="p">],</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>        
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">e</span><span class="p">,</span> <span class="n">doc</span><span class="p">[</span><span class="s">&#39;url&#39;</span><span class="p">]))</span>
+            <span class="k">print</span> <span class="s">&#39;:(&#39;</span><span class="p">,</span>
+            <span class="k">continue</span>
+        <span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s">&#39;url&#39;</span><span class="p">:</span> <span class="n">doc</span><span class="p">[</span><span class="s">&#39;url&#39;</span><span class="p">]},</span> <span class="p">{</span><span class="s">&#39;$set&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;text&#39;</span><span class="p">:</span> <span class="n">txt</span><span class="p">}})</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+<span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">remove</span><span class="p">({</span><span class="s">&#39;text&#39;</span><span class="p">:</span> <span class="s">u&#39;&#39;</span><span class="p">})</span>  <span class="c">#there was one weird result that didn&#39;t have any text...</span>
+</pre></div>
+
+</div>
+</div>
+<div class="vbox output_wrapper">
+<div class="output vbox">
+<div class="hbox output_area">
+<div class="prompt output_prompt"></div>
+<div class="output_subarea output_stream output_stdout">
+<pre class="ipynb">0 :( 1 :( 2 :( 3 :( 4 :( 5 :( 6 :( 7 :( 8 :( 9 :( 10 :(
+:( 1 :( 2 :( 3 :( 4 :( 5 :( 6 :( 7 :( 8 :( 9 :( 10 :(
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>I used the following code to clean up after I downloaded most of the articles and modified the query, which changed some of the output fields. This just renames the original fields and sets the <code>title</code> to an empty string where there was none. </p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[62]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="p">(</span><span class="s">&#39;pub_date&#39;</span> <span class="ow">in</span> <span class="n">doc</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s">&#39;date&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">doc</span><span class="p">):</span>
+        <span class="c"># cleanup from v1 queries</span>
+        <span class="n">updates</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;date&#39;</span><span class="p">:</span> <span class="n">doc</span><span class="p">[</span><span class="s">&#39;pub_date&#39;</span><span class="p">],</span>
+                   <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="n">doc</span><span class="p">[</span><span class="s">&#39;headline&#39;</span><span class="p">]}</span>
+        <span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s">&#39;url&#39;</span><span class="p">:</span> <span class="n">doc</span><span class="p">[</span><span class="s">&#39;url&#39;</span><span class="p">]},</span> <span class="p">{</span><span class="s">&#39;$set&#39;</span><span class="p">:</span> <span class="n">updates</span><span class="p">})</span>
+    <span class="k">if</span> <span class="p">(</span><span class="s">&#39;title&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">doc</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s">&#39;headline&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">doc</span><span class="p">):</span>
+        <span class="c">#cleanup</span>
+        <span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s">&#39;url&#39;</span><span class="p">:</span> <span class="n">doc</span><span class="p">[</span><span class="s">&#39;url&#39;</span><span class="p">]},</span> <span class="p">{</span><span class="s">&#39;$set&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;&#39;</span><span class="p">}})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>A few of the articles set off exceptions when I tried pulling them; these weren't included in the dataset:</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[33]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="n">exceptions</span>
+</pre></div>
+
+</div>
+</div>
+<div class="vbox output_wrapper">
+<div class="output vbox">
+<div class="hbox output_area">
+<div class="prompt output_prompt">Out[33]:</div>
+<div class="output_subarea output_pyout">
+<pre class="ipynb">[(lxml.etree.ParserError(&apos;Document is empty&apos;),
+  u&apos;http://www.nytimes.com/2007/04/01/magazine/01axelrod.t.html&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2007/01/22/992348.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2007/01/22/992348.sgml&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2006/02/16/757594.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2006/02/16/757594.sgml&apos;),
+ (lxml.etree.ParserError(&apos;Document is empty&apos;),
+  u&apos;http://www.nytimes.com/2006/01/23/politics/23leases.html&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2005/11/08/732095.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2005/11/08/732095.sgml&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2009/08/25/954306.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2009/08/25/954306.sgml&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2009/07/30/131903.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2009/07/30/131903.sgml&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2009/01/22/881090.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2009/01/22/881090.sgml&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2008/12/23/615110.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2008/12/23/615110.sgml&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2006/12/12/830470.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2006/12/12/830470.sgml&apos;),
+ (requests.exceptions.MissingSchema(&quot;Invalid URL u&apos;/data/daily/2005/05/21/030015.sgml&apos;: No schema supplied&quot;),
+  u&apos;/data/daily/2005/05/21/030015.sgml&apos;)]</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="n">res</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">itemgetter</span><span class="p">(</span><span class="s">&#39;date&#39;</span><span class="p">,</span> <span class="s">&#39;url&#39;</span><span class="p">,</span> <span class="s">&#39;title&#39;</span><span class="p">),</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">find</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">itemgetter</span><span class="p">(</span><span class="s">&#39;date&#39;</span><span class="p">),</span> <span class="n">reverse</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="n">res</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
+</pre></div>
+
+</div>
+</div>
+<div class="vbox output_wrapper">
+<div class="output vbox">
+<div class="hbox output_area">
+<div class="prompt output_prompt">Out[7]:</div>
+<div class="output_subarea output_pyout">
+<pre class="ipynb">[(datetime.datetime(2013, 7, 7, 0, 0),
+  u&apos;http://www.nytimes.com/2013/07/07/business/mutfund/robert-ag-monks-crusading-against-corporate-excess.html&apos;,
+  u&apos;Robert A.G. Monks, Crusading Against Corporate Excess&apos;),
+ (datetime.datetime(2013, 7, 6, 0, 0),
+  u&apos;http://www.nytimes.com/reuters/2013/07/06/world/europe/06reuters-usa-security-europe-germany.html&apos;,
+  u&apos;Merkel Says EU Must Not Forget U.S. Spying in Push for Free Trade&apos;),
+ (datetime.datetime(2013, 7, 6, 0, 0),
+  u&apos;http://www.nytimes.com/2013/07/06/nyregion/weiners-surprising-rebound-from-scandal.html&apos;,
+  u&apos;Weiner\u2019s Surprising Rebound From Scandal&apos;)]</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>And, we got more than 9700 scandalous stories...but still counting!</p>
+</div>
+<div class="cell border-box-sizing code_cell vbox">
+<div class="input hbox">
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="input_area box-flex1">
+<div class="highlight-ipynb"><pre class="ipynb"><span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">raw_text</span><span class="o">.</span><span class="n">find</span><span class="p">()))</span>
+</pre></div>
+
+</div>
+</div>
+<div class="vbox output_wrapper">
+<div class="output vbox">
+<div class="hbox output_area">
+<div class="prompt output_prompt">Out[8]:</div>
+<div class="output_subarea output_pyout">
+<pre class="ipynb">9717</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 class="ipynb">Conclusion</h3>
+<p>Though it turned out to be pretty brief, I thought this first part of my NYT scandals project deserved its own post.
+Luckily it doesn't take too much effort or space when you're working with a nice, expressive language, though.
+And you can reproduce this for yourself--you can find a copy of this notebook on <a href="https://github.com/d10genes/nyt-nlp">Github</a>.</p>
+</div></div>                </article>
+                            </aside><!-- /#featured -->
+                            <section id="content" class="body">
+                    <h1>Other articles</h1>
+                    <hr />
+                    <ol id="posts-list" class="hfeed">
+                                                
+
+                 
+                        <li><article class="hentry">    
+                <header>
+                    <h1><a href="/scandal-modeling-with-python.html" rel="bookmark"
+                           title="Permalink to Modeling 20 years of scandals with python">Modeling 20 years of scandals with python</a></h1>
+                </header>
+                
+                <div class="entry-content">
+                <footer class="post-info">
+        <abbr class="published" title="2013-07-04T00:00:00">
+                Thu 04 July 2013
+        </abbr>
+
+                <address class="vcard author">
+                By <a class="url fn" href="/author/chris.html">Chris</a>
+        </address>
+        <p>In <a href="/category/ipython.html">ipython</a>. </p>
+<p>tags: <a href="/tag/nlp.html">nlp</a><a href="/tag/ipython.html">ipython</a><a href="/tag/gensim.html">gensim</a><a href="/tag/pandas.html">pandas</a></p>
+</footer><!-- /.post-info -->                <div class="ipynb"><div class="text_cell_render border-box-sizing rendered_html">
+<h1 class="ipynb">Topic detection with Pandas and Gensim</h1>
+<p>A few months ago, the <a href="http://en.wikipedia.org/wiki/2013_IRS_scandal">undending</a> <a href="http://thelead.blogs.cnn.com/2013/08/01/exclusive-dozens-of-cia-operatives-on-the-ground-during-benghazi-attack/">series</a> of <a href="http://www.usatoday.com/story/news/2013/05/13/justice-department-associated-press-telephone-records/2156521/">recent</a> <a href="http://en.wikipedia.org/wiki/2013_mass_surveillance_scandal">scandals</a> inspired me to see whether it would be possible to comb through the text of New York Times articles and automatically detect and identify different scandals that have occurred. I wanted to see if ...</p></div></div>
+                <a class="readmore" href="/scandal-modeling-with-python.html">read more</a>
+                                </div><!-- /.entry-content -->
+            </article></li>
+                            </ol><!-- /#posts-list -->
+                                                    </section><!-- /#content -->
+                    <section id="extras" class="body">
+                        <div class="blogroll">
+                        <h2>blogroll</h2>
+                        <ul>
+                                                    <li><a href="http://ipython.org/">IPython</a></li>
+                                                    <li><a href="http://python.org/">Python.org</a></li>
+                                                    <li><a href="http://jinja.pocoo.org/">Jinja2</a></li>
+                                                </ul>
+                </div><!-- /.blogroll -->
+                                <div class="social">
+                        <h2>social</h2>
+                        <ul>
+                            <li><a href="/None" type="application/atom+xml" rel="alternate">atom feed</a></li>
+                            
+                                                    <li><a href="#">You can add links in your config file</a></li>
+                                                    <li><a href="#">Another social link</a></li>
+                                                </ul>
+                </div><!-- /.social -->
+                </section><!-- /#extras -->
+
+        <footer id="contentinfo" class="body">
+                <address id="about" class="vcard body">
+                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
+                </address><!-- /#about -->
+
+                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
+        </footer><!-- /#contentinfo -->
+
+</body>
+</html>
