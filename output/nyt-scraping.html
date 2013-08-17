@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
         <meta charset="utf-8">
-        <title>Blogistic Regression - Chris</title>
+        <title>Scraping NYT for Scandals</title>
         <link rel="stylesheet" href="/theme/css/main.css">
                 
         <!--[if IE]>
@@ -14,16 +14,19 @@
         <header id="banner" class="body">
                 <h1><a href="/">Blogistic Regression </a></h1>
                 <nav><ul>
-                                                                                    <li ><a href="/category/ipython.html">ipython</a></li>
+                                                                                    <li class="active"><a href="/category/ipython.html">ipython</a></li>
                                                 </ul></nav>
         </header><!-- /#banner -->
-                
-            
+        <section id="content" class="body">
+  <article>
+    <header>
+      <h1 class="entry-title">
+        <a href="/nyt-scraping.html" rel="bookmark"
+           title="Permalink to Scraping NYT for Scandals">Scraping NYT for Scandals</a></h1>
+          </header>
 
-                            <aside id="featured" class="body">
-                <article>
-                    <h1 class="entry-title"><a href="/nyt-scraping.html">Scraping NYT for Scandals</a></h1> 
-                    <footer class="post-info">
+    <div class="entry-content">
+      <footer class="post-info">
         <abbr class="published" title="2013-07-04T00:00:00">
                 Thu 04 July 2013
         </abbr>
@@ -33,7 +36,7 @@
         </address>
         <p>In <a href="/category/ipython.html">ipython</a>. </p>
 <p>tags: <a href="/tag/nlp.html">nlp</a><a href="/tag/ipython.html">ipython</a></p>
-</footer><!-- /.post-info --><div class="ipynb"><div class="text_cell_render border-box-sizing rendered_html">
+</footer><!-- /.post-info -->      <div class="ipynb"><div class="text_cell_render border-box-sizing rendered_html">
 <p>This post uses the <a href="http://developer.nytimes.com/docs/read/article_search_api_v2">New York Times API</a> to search for articles on US politics that include the word <em>scandal</em>, and several python libraries to grab the text of those articles and store them to MongoDB for some natural language processing analytics (in <a href="/scandal-modeling-with-python.html">part 2</a> of this project).</p>
 </div>
 <div class="text_cell_render border-box-sizing rendered_html">
@@ -483,41 +486,12 @@ autosaving every 30s
 <p>Though it turned out to be pretty brief, I thought this first part of my NYT scandals project deserved its own post.
 Luckily it doesn't take too much effort or space when you're working with a nice, expressive language, though.
 And you can reproduce this for yourself--you can find a copy of this notebook on <a href="https://github.com/d10genes/nyt-nlp">Github</a>.</p>
-</div></div>                </article>
-                            </aside><!-- /#featured -->
-                            <section id="content" class="body">
-                    <h1>Other articles</h1>
-                    <hr />
-                    <ol id="posts-list" class="hfeed">
-                                                
-
-                 
-                        <li><article class="hentry">    
-                <header>
-                    <h1><a href="/scandal-modeling-with-python.html" rel="bookmark"
-                           title="Permalink to Modeling 20 years of scandals with python">Modeling 20 years of scandals with python</a></h1>
-                </header>
-                
-                <div class="entry-content">
-                <footer class="post-info">
-        <abbr class="published" title="2013-07-04T00:00:00">
-                Thu 04 July 2013
-        </abbr>
-
-                <address class="vcard author">
-                By <a class="url fn" href="/author/chris.html">Chris</a>
-        </address>
-        <p>In <a href="/category/ipython.html">ipython</a>. </p>
-<p>tags: <a href="/tag/nlp.html">nlp</a><a href="/tag/ipython.html">ipython</a><a href="/tag/gensim.html">gensim</a><a href="/tag/pandas.html">pandas</a></p>
-</footer><!-- /.post-info -->                <div class="ipynb"><div class="text_cell_render border-box-sizing rendered_html">
-<h1 class="ipynb">Topic detection with Pandas and Gensim</h1>
-<p>A few months ago, the <a href="http://en.wikipedia.org/wiki/2013_IRS_scandal">undending</a> <a href="http://thelead.blogs.cnn.com/2013/08/01/exclusive-dozens-of-cia-operatives-on-the-ground-during-benghazi-attack/">series</a> of <a href="http://www.usatoday.com/story/news/2013/05/13/justice-department-associated-press-telephone-records/2156521/">recent</a> <a href="http://en.wikipedia.org/wiki/2013_mass_surveillance_scandal">scandals</a> inspired me to see whether it would be possible to comb through the text of New York Times articles and automatically detect and identify different scandals that have occurred. I wanted to see if ...</p></div></div>
-                <a class="readmore" href="/scandal-modeling-with-python.html">read more</a>
-                                </div><!-- /.entry-content -->
-            </article></li>
-                            </ol><!-- /#posts-list -->
-                                                    </section><!-- /#content -->
-                    <section id="extras" class="body">
+</div></div>
+    </div><!-- /.entry-content -->
+    
+  </article>
+</section>
+        <section id="extras" class="body">
                         <div class="blogroll">
                         <h2>blogroll</h2>
                         <ul>
