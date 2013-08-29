@@ -39,3 +39,5 @@ PLUGINS = ['custom_plugins_dir.ipythonnb']
 MARKUP = ('md', 'ipynb')
 
 GOOGLE_ANALYTICS = 'UA-40869107-1'
+
+DISQUS_SITENAME = 'http://d10genes.github.io/'
