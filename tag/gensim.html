@@ -3443,7 +3443,7 @@ dtype: int64</pre>
 <p>The results give a much less fine-grained view of scandals than what I was expecting, either because of the sources (not enough articles devoted specifically enough to particular scandals? text not sufficiently preprocessed) or the algorithm (wrong algorithm for the task? wrong settings?). Plus, it turns out there have been a <em>lot</em> of American political scandals in the last 20 years. Perhaps more clear patterns could be discerned by expanding the number of topics. </p>
 <p>The detected topics seem to have a lot of noise (for example, the presidents' names show up as key words in <em>every</em> topic), possibly due to the imbalance from some scandals being cited more frequently than others. But when you cut out the noise and try to characterize the topics by the more infrequent key words, I was surprised by the topic clusters it was actually able to detect, from international scandals to corporate scandals to Jersey scandals. I was unfortunately not able to detect the recent set of scandals, but from the experiment, the good scandals seem to require a few years to age before there is enough data to detect them. Hopefully today's events will be easy enough to spot by rerunning this in a few months or years.</p>
 <p>All in all, it was a fun exercise and a good reminder of the strong tradition of corruption we're part of.</p>
-</div></div>                </article>
+</div></div><p>There are <a href="/scandal-modeling-with-python.html#disqus_thread">comments</a>.</p>                </article>
                                                                 </aside><!-- /#featured -->
                                                 </ol><!-- /#posts-list -->
                         </section><!-- /#content -->
@@ -3476,5 +3476,14 @@ dtype: int64</pre>
         var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
     })();
     </script>
+<script type="text/javascript">
+    var disqus_shortname = 'http://d10genes.github.io/';
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'http://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+</script>
 </body>
 </html>
