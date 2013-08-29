@@ -40,4 +40,6 @@ MARKUP = ('md', 'ipynb')
 
 GOOGLE_ANALYTICS = 'UA-40869107-1'
 
-DISQUS_SITENAME = 'http://d10genes.github.io/'
+DISQUS_SITENAME = 'blogistic'
+
+
