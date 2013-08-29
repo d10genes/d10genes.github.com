@@ -20,12 +20,13 @@ TRANSLATION_FEED_ATOM = None
 # Blogroll
 LINKS =  (('IPython', 'http://ipython.org/'),
           ('Python.org', 'http://python.org/'),
-          ('Jinja2', 'http://jinja.pocoo.org/'),
+          ('Pandas', 'http://pandas.pydata.org/'),
           )
 
 # Social widget
-SOCIAL = (('You can add links in your config file', '#'),
-          ('Another social link', '#'),)
+# SOCIAL = (('You can add links in your config file', '#'),
+#           ('Another social link', '#'),)
+SOCIAL = ()
 
 DEFAULT_PAGINATION = False
 
@@ -37,3 +38,4 @@ PLUGIN_PATH = 'custom_plugins_dir'
 PLUGINS = ['custom_plugins_dir.ipythonnb']
 MARKUP = ('md', 'ipynb')
 
+GOOGLE_ANALYTICS = 'UA-40869107-1'
